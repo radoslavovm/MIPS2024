@@ -54,17 +54,20 @@ ACRAD37_CTE.APPOINTMENTDATE as EXAM_DATE_TIME
 --, ACRAD37_CTE.PATIENT_NAME
 --, ACRAD37_CTE.DOB
 --, ACRAD37_CTE.MODALITY
-, CASE WHEN (pass_measure IS NOT NULL)
+, CASE WHEN (pass_measure IS NOT NULL) --if no pass phrases where found then the report is not in compliance 
 	THEN 'Y' ELSE 'N' END AS NUMERATOR_RESPONSE_VALUE
 INTO MIPS.DBO.ACRAD37_PE_FINAL_2024
 FROM ACRAD37_CTE
+-- inner join on the reports that meet the denominator specifications based on report content
 INNER JOIN (
 SELECT  DISTINCT ReportID,
+-- Does the report have at least one of the phrases in it. if so, pass_measure will return the first phrase found
 (SELECT TOP 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
 	WHERE CRITERIA = 'Y' AND MEASURE = 'ACRAD37'
 	and ARC_DW.DBO.Pull_HeadersV2(Report.ContentText, 'PULMONARY ARTERIES:', DEFAULT) LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
 ) pass_measure
 FROM COMM4_HHC.DBO.Report 
+-- filter out any reports that have a phrase that should be excluded from the denominator 
 WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
 	WHERE CRITERIA = 'EXCLUDE' AND MEASURE = 'ACRAD37'
 	and  Report.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%'))
