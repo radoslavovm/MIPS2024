@@ -24,3 +24,13 @@ ARC_DW.DBO.REPORT_PHRASES
 ### 406
 
 ### 436
+
+
+# TO DO 
+Update all of the queries with the new logic. Document as you go. 
+Add the new column for report prases table that is layed out in the documentation 
+
+As part of the new job, create an output that provides all of the noncompliant cases, and the necessary information to submit an addendum
+  Add documentation on these results. 
+
+Add links in this read me to all of the measure documentation
