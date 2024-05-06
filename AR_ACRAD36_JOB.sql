@@ -1,0 +1,68 @@
+DROP TABLE MIPS.DBO.ACRAD36_CORONARYARTERY_2024;
+SELECT 
+[REPORT].REPORTID
+, 'ACRAD36' AS MEASURE_NUMBER
+, pd.lastname + ', ' + pd.firstname AS PATIENT_NAME
+, Patient.MRN AS MRN
+,patient.DOB
+, patient.Sex
+, [ORDER].FillerOrderNumber AS ACCESSION
+,  convert(varchar(10), [order].startdate, 101) as APPOINTMENTDATE
+,  CONVERT(VARCHAR(8),CONVERT(TIME,[order].startdate)) AS APPOINTMENTTIME
+, [ORDER].PROCEDURECODELIST AS MCODE
+, LEFT([ORDER].PROCEDUREDESCLIST, 2) AS MODALITY
+, [ORDER].PROCEDUREDESCLIST AS APPOINTMENTREASON
+, PersonalInfo.FirstName + ' ' + PersonalInfo.LastName as Reading_Radiologist
+, REPORT.LASTMODIFIEDDATE AS REPORTSIGNED
+, report.contenttext
+, p.CPT
+into MIPS.DBO.ACRAD36_CORONARYARTERY_2024
+FROM comm4_hhc.dbo.Report 
+INNER JOIN comm4_hhc.dbo.[Order] ON Report.ReportID = [Order].ReportID 
+INNER JOIN comm4_hhc.dbo.Visit ON [Order].VisitID = Visit.VisitID 
+INNER JOIN comm4_hhc.dbo.Patient ON Visit.PatientID = Patient.PatientID 
+left outer JOIN comm4_hhc.dbo.PersonalInfo PD on Patient.PersonalInfoID = PD.PersonalInfoID 
+left outer join comm4_hhc.dbo.Account ON Report.DictatorAcctID = Account.AccountID 
+left outer JOIN comm4_hhc.dbo.PersonalInfo pb on Account.PersonalInfoID = pb.PersonalInfoID 
+left outer JOIN comm4_hhc.dbo.Account b on Report.SignerAcctID = b.AccountID 
+left outer JOIN comm4_hhc.dbo.PersonalInfo ON b.PersonalInfoID = PersonalInfo.PersonalInfoID 
+left outer join MIPS.dbo.HHC_CPT_PIVOT p ON P.[MPI: ID] =[ORDER].ProcedureCodeList 
+LEFT OUTER JOIN (
+	SELECT * FROM ARC_DW.DBO.REPORT_PHRASES 
+	WHERE MEASURE = 'ACRAD36' AND CRITERIA = 'EXCLUDE') AS RP_EXCLUDE ON REPORT.ContentText LIKE CONCAT('%', RP_EXCLUDE.PHRASE, '%')
+WHERE [order].siteid = 8 and left([order].fillerordernumber, 2) not in ('CH', 'HM', 'MS', 'SV', 'WH') AND P.CPT IN ('71250','71270') 
+and (REPORT.LastModifiedDate >='1/1/2024' AND REPORT.LastModifiedDate < '1/1/2025' and [order].ProcedureDescList like '%CHEST%')
+AND RP_EXCLUDE.PHRASE_ID IS NULL;
+
+
+DROP TABLE MIPS.DBO.ACRAD36_CORONARYARTERY_FINAL_2024;
+SELECT distinct 
+APPOINTMENTDATE as EXAM_DATE_TIME
+, APPOINTMENTTIME
+, '061614148' as PHYSICIAN_GROUP_TIN
+, case when MIPS.DBO.ACRAD36_CORONARYARTERY_2024.READING_RADIOLOGIST = 'Noel Velasco' then '1922093590' 
+       when MIPS.DBO.ACRAD36_CORONARYARTERY_2024.READING_RADIOLOGIST = 'Sudhir Kunchala' then '2005102554'
+	   when MIPS.DBO.ACRAD36_CORONARYARTERY_2024.READING_RADIOLOGIST = 'Thomas Dibartholomeo' then '1598782492'
+	   else ProviderDim.NPI end AS PHYSICIAN_NPI
+,MIPS.DBO.ACRAD36_CORONARYARTERY_2024.READING_RADIOLOGIST
+, MIPS.DBO.ACRAD36_CORONARYARTERY_2024.REPORTSIGNED
+, MRN AS PATIENT_ID
+, CONVERT(int,ROUND(DATEDIFF(hour, MIPS.DBO.ACRAD36_CORONARYARTERY_2024.DOB, APPOINTMENTDATE)/8766.0,0)) as PATIENT_AGE
+ , MIPS.DBO.ACRAD36_CORONARYARTERY_2024.SEX AS PATIENT_GENDER
+, 'ACRAD36' AS MEASURE_NUMBER
+, MIPS.DBO.ACRAD36_CORONARYARTERY_2024.APPOINTMENTREASON
+, MIPS.DBO.ACRAD36_CORONARYARTERY_2024.CPT AS CPT_CODE
+,CASE WHEN RP_Y.PHRASE_ID IS NOT NULL THEN 'Y' ELSE 'N' END AS NUMERATOR_RESPONSE_VALUE 
+, ACCESSION AS EXAM_UNIQUE_ID
+, MIPS.DBO.ACRAD36_CORONARYARTERY_2024.MCODE  
+INTO MIPS.DBO.ACRAD36_CORONARYARTERY_FINAL_2024
+FROM MIPS.DBO.ACRAD36_CORONARYARTERY_2024
+inner join Caboodle.dbo.ImagingFact on ImagingFact.AccessionNumber = MIPS.DBO.ACRAD36_CORONARYARTERY_2024.ACCESSION
+inner join Caboodle.dbo.ProviderDim on ImagingFact.FinalizingProviderDurableKey = ProviderDim.DurableKey
+inner join Caboodle.dbo.DepartmentDim on ImagingFact.PerformingDepartmentKey = DepartmentDim.DepartmentKey
+LEFT OUTER JOIN (
+	SELECT * FROM ARC_DW.DBO.REPORT_PHRASES 
+	WHERE MEASURE = 'ACRAD36' AND CRITERIA = 'Y') AS RP_Y ON ACRAD36_CORONARYARTERY_2024.ContentText LIKE CONCAT('%', RP_Y.PHRASE, '%')
+where left([imagingfact].accessionnumber, 2) not in ('CH', 'HM', 'MS', 'SV', 'WH') and departmentdim.departmentcenter = 'Advanced Radiology Partners'
+and ((CONVERT(int,ROUND(DATEDIFF(hour, MIPS.DBO.ACRAD36_CORONARYARTERY_2024.DOB, APPOINTMENTDATE)/8766.0,0))  between 18 and 50 and MIPS.DBO.ACRAD36_CORONARYARTERY_2024.sex = 'M')
+or (CONVERT(int,ROUND(DATEDIFF(hour, MIPS.DBO.ACRAD36_CORONARYARTERY_2024.DOB, APPOINTMENTDATE)/8766.0,0)) between 18 and 65 and MIPS.DBO.ACRAD36_CORONARYARTERY_2024.sex = 'F'));
