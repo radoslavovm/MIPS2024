@@ -8,6 +8,9 @@ ARC_DW.DBO.REPORT_PHRASES
           Criteria, (A string code that determines if the presence of the phrase suggests compliance, noncompliance, or an exception)
           Measure, (Value is a string determining the measure the phrase cooresponds to)
           Denominator (Values are INCLUDE or EXCLUDE)
+  
+  the report_phrases.sql file is how we insert new phrases that need to be considered in the mips measure calculation. This is how we rectify false negative numerator response values 
+
 ## The Measures 
 
 ### ACRAD37
