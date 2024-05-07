@@ -31,11 +31,11 @@ ARC_DW.DBO.REPORT_PHRASES
 # TO DO 
 Update all of the queries with the new logic. Document as you go. 
 - [x]Add the new column for report prases table that is layed out in the documentation
-- [] acrad37
+- [] acrad37 (AR is complete. need to complete sv and bh)
 - [] acrad36
 - [] acrad41
 - [] 405
->> This is a work in progress. Needs a quality check. updates in branch 405
+> - This is a work in progress. Needs a quality check. updates in branch 405
 - [] 406
 - [x] 436 
 >- [] BH addendum addition
