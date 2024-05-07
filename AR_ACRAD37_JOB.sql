@@ -69,7 +69,7 @@ SELECT  DISTINCT ReportID,
 FROM COMM4_HHC.DBO.Report 
 -- filter out any reports that have a phrase that should be excluded from the denominator 
 WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
-	WHERE CRITERIA = 'EXCLUDE' AND MEASURE = 'ACRAD37'
+	WHERE denominator = 'EXCLUDE' AND MEASURE = 'ACRAD37'
 	and  Report.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%'))
 ) AS R
 ON R.ReportID = ACRAD37_CTE.ReportID
