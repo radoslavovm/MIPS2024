@@ -24,13 +24,24 @@ ARC_DW.DBO.REPORT_PHRASES
 ### 406
 
 ### 436
+  > [Documentation](https://qpp.cms.gov/docs/QPP_quality_measure_specifications/CQM-Measures/2020_Measure_436_MIPSCQM.pdf)
+
 
 
 # TO DO 
 Update all of the queries with the new logic. Document as you go. 
-Add the new column for report prases table that is layed out in the documentation 
+- [x]Add the new column for report prases table that is layed out in the documentation
+- [] acrad37
+- [] acrad36
+- [] acrad41
+- [] 405
+>> This is a work in progress. Needs a quality check. updates in branch 405
+- [] 406
+- [x] 436 
+>- [] BH addendum addition
+ 
 
-As part of the new job, create an output that provides all of the noncompliant cases, and the necessary information to submit an addendum
+- [] As part of the new job, create an output that provides all of the noncompliant cases, and the necessary information to submit an addendum.
   Add documentation on these results. 
 
 Add links in this read me to all of the measure documentation
