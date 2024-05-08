@@ -1,5 +1,5 @@
 
-DROP TABLE MIPS.DBO.MSN_15_2024;
+DROP TABLE IF EXISTS MIPS.DBO.MSN_15_2024;
 SELECT DISTINCT
 REPORT.REPORTID, 'MSN15' AS MEASURE_NUMBER
  , RTRIM(PatientDemo.LastName + ', ' + PatientDemo.FirstName + ' ' + case when PatientDemo.MiddleName is null or PatientDemo.MiddleName = '' then '' else PatientDemo.Middlename end) AS PATIENT_NAME
@@ -33,7 +33,7 @@ WHERE  [ORDER].SITEID = 8 and left([order].fillerordernumber, 2) not in ('CH', '
 AND RP_EXCLUDE.PHRASE_ID IS NULL 
 AND (REPORT.LastModifiedDate >= '1/1/2024' and REPORT.LastModifiedDate < '1/1/2025')
 		
-DROP TABLE MIPS.DBO.MSN_15_2024_FINAL;
+DROP TABLE IF EXISTS MIPS.DBO.MSN_15_2024_FINAL;
 SELECT distinct  
 CONVERT(VARCHAR(10), APPOINTMENTDATE, 101) as EXAM_DATE_TIME
 , '061614148' as PHYSICIAN_GROUP_TIN

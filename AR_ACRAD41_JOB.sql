@@ -1,4 +1,4 @@
-DROP TABLE MIPS.DBO.ACRAD41_PET_2024;
+DROP TABLE IF EXISTS MIPS.DBO.ACRAD41_PET_2024;
 SELECT 
 [REPORT].REPORTID
 , 'ACRAD41' AS MEASURE_NUMBER
@@ -30,7 +30,7 @@ inner join MIPS.dbo.HHC_CPT_PIVOT p ON P.[MPI: ID] =[ORDER].ProcedureCodeList
 						 AND P.CPT IN ('78811','78812','78813','78814','78815','78816','G0219','G0235','G0252')
 WHERE [order].siteid = 8 and left([order].fillerordernumber, 2) not in ('CH', 'HM', 'MS', 'SV', 'WH')  and report.contenttext not like '%Alzheimer%' and (REPORT.LastModifiedDate >='1/1/2024' AND REPORT.LastModifiedDate < '1/1/2025') ;
 
-DROP TABLE MIPS.DBO.ACRAD41_PET_FINAL_2024;
+DROP TABLE IF EXISTS MIPS.DBO.ACRAD41_PET_FINAL_2024;
 SELECT distinct 
 APPOINTMENTDATE as EXAM_DATE_TIME
 , APPOINTMENTTIME
