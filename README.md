@@ -32,7 +32,7 @@ ARC_DW.DBO.REPORT_PHRASES
 Update all of the queries with the new logic. Document as you go. 
 - [x]Add the new column for report prases table that is layed out in the documentation
 - [] acrad37 (AR is complete. need to complete sv and bh)
-- [] acrad36
+- [] acrad36 (ADDED ADDENDUM UPDATE QUERY FOR SV. STILL NEED AR AND BH )
 - [] acrad41
 - [] 405
 > - This is a work in progress. Needs a quality check. updates in branch 405
