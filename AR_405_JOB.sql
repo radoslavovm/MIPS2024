@@ -1,5 +1,23 @@
 
-DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_2024;
+DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE;
+DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_2024_FINAL;
+
+WITH PT1_405_CTE (REPORTID
+, MEASURE_NUMBER
+, PATIENT_NAME
+, MRN 
+, ACCESSION
+, APPOINTMENTDATE
+, MCODE
+, MODALITY
+, APPOINTMENTREASON
+, Reading_Radiologist
+, ADRENAL  
+, KIDNEY
+, ABDOMINAL
+, REPORTCONTENT
+)
+AS (
 SELECT DISTINCT 
 REPORT.REPORTID
 , '405' AS MEASURE_NUMBER
@@ -16,7 +34,6 @@ REPORT.REPORTID
 , CONCAT(ARC_DW.dbo.Pull_HeadersV2 (contenttext, 'AdrenalS:', DEFAULT)  
 , ARC_DW.dbo.Pull_HeadersV2 (contenttext, 'KidneyS:', DEFAULT)) AS ABDOMINAL
 , report.contenttext as REPORTCONTENT
-into MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_2024
 FROM COMM4_HHC.DBO.Report 
 INNER JOIN COMM4_HHC.DBO.[Order] ON Report.ReportID = [Order].ReportID 
 INNER JOIN COMM4_HHC.DBO.Visit ON [Order].VisitID = Visit.VisitID 
@@ -28,13 +45,13 @@ left outer JOIN COMM4_HHC.DBO.Account b on Report.SignerAcctID = b.AccountID
 left outer JOIN COMM4_HHC.DBO.PersonalInfo ON b.PersonalInfoID = PersonalInfo.PersonalInfoID 
 INNER JOIN MIPS.DBO.HHC_CPT_PIVOT ON [ORDER].ProcedureCodeList = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
 										AND MIPS.DBO.HHC_CPT_PIVOT.CPT IN ('71250','71260','71270','71271','71275','71555','72131','72191','72192','72193','72194','72195','72196','72197','72198','74150','74160','74170','74176','74177','74178','74181','74182','74183')
-WHERE  [ORDER].SITEID IN (8)  
+WHERE [ORDER].SITEID IN (8)  
 AND REPORT.LastModifiedDate >= '01/01/2024'
-AND (ContentText LIKE '%RENAL%' OR ContentText LIKE '%KIDNEY%')
+AND (ContentText LIKE '%RENAL%' 
+	OR ContentText LIKE '%KIDNEY%')
 AND CONVERT(int,ROUND(DATEDIFF(hour,PATIENT.dob,CONVERT(VARCHAR(10), CONVERT(VARCHAR(12), [ORDER].STARTDATE, 101), 101))/8766.0,0)) >= 18
-;
+)
 
-DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE;
 SELECT F.*
 , CASE 
 	WHEN (
@@ -73,21 +90,21 @@ SELECT F.*
 	) THEN 'EXCLUDE'
 	ELSE 'OTHER' END AS CATEGORY
 INTO MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE
-FROM MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_2024 as F
+FROM PT1_405_CTE AS F
 INNER JOIN (
 SELECT  DISTINCT ReportID
-FROM F
+FROM PT1_405_CTE
 -- filter out any reports that have a phrase that should be excluded from the denominator 
 WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
 	WHERE CRITERIA = 'EXCLUDE' AND MEASURE = '405'
-	and  Report.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%'))
+	and PT1_405_CTE.REPORTCONTENT LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%'))
 ) AS R 
 ON R.ReportID = f.ReportID
-Inner join comm4_hhc.dbo.[order] on report.reportid = [order].reportid
-inner join comm4_hhc.dbo.visit on [order].visitid = visit.visitid
-inner join comm4_hhc.dbo.patient on patient.patientid = visit.patientid
+INNER JOIN comm4_hhc.dbo.[order] on R.reportid = [order].reportid
+INNER JOIN comm4_hhc.dbo.visit on [order].visitid = visit.visitid
+INNER JOIN comm4_hhc.dbo.patient on patient.patientid = visit.patientid
 
-where F.MODALITY = 'MR'
+WHERE F.MODALITY = 'MR'
 AND (ABDOMINAL NOT like '%complex appearing%'
 	AND ABDOMINAL NOT like '%complex CYST%'
 	AND ABDOMINAL NOT like '%Bosniak[3-4]%'
@@ -97,7 +114,6 @@ AND (ABDOMINAL NOT like '%complex appearing%'
 	AND REPLACE(ABDOMINAL, ' ', '') NOT LIKE '%[4-9].[0-9]CM%'
 )
 
-DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_2024_FINAL;
 SELECT DISTINCT 
 CONVERT(VARCHAR(10), APPOINTMENTDATE, 101) as EXAM_DATE_TIME
 , '061216029' as PHYSICIAN_GROUP_TIN
@@ -140,16 +156,16 @@ SELECT  DISTINCT ReportID,
 -- Does the report have at least one of the phrases in it. if so, pass_measure will return the first phrase found
 (SELECT TOP 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
 	WHERE CRITERIA = 'PE' AND MEASURE = '405'
-	and Report.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
+	and REPORTCONTENT LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
 ) measure_exception,
 (SELECT TOP 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
 	WHERE CRITERIA = 'Y' AND MEASURE = '405'
 	and ABDOMINAL LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
 ) performance_met
-FROM INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE
+FROM MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE
 ) AS R 
 ON R.ReportID = INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE.ReportID
-Inner join comm4_hhc.dbo.[order] on report.reportid = [order].reportid
+Inner join comm4_hhc.dbo.[order] on R.reportid = [order].reportid
 inner join comm4_hhc.dbo.visit on [order].visitid = visit.visitid
 inner join comm4_hhc.dbo.patient on patient.patientid = visit.patientid
 inner join Caboodle.dbo.ImagingFact on [order].fillerordernumber = ImagingFact.AccessionNumber
@@ -161,6 +177,7 @@ left outer join MIPS.DBO.HHC_CPT_PIVOT ON MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_
 						 AND MIPS.DBO.HHC_CPT_PIVOT.CPT in (
 '71250','71260','71270','71271','71275','71555','72131','72191','72192','72193','72194','72195','72196','72197','72198','74150','74160','74170','74176','74177','74178','74181','74182','74183'
 )
-where CATEGORY NOT LIKE 'EXCLUDE' AND CATEGORY NOT LIKE 'OTHER'
+where CATEGORY NOT LIKE 'EXCLUDE' 
+AND CATEGORY NOT LIKE 'OTHER'
 ;
 

@@ -30,15 +30,15 @@ ARC_DW.DBO.REPORT_PHRASES
 
 # TO DO 
 Update all of the queries with the new logic. Document as you go. 
-- [x]Add the new column for report prases table that is layed out in the documentation
-- [] acrad37 (AR is complete. need to complete sv and bh)
-- [] acrad36 (ADDED ADDENDUM UPDATE QUERY FOR SV. STILL NEED AR AND BH )
+- [x] Add the new column for report prases table that is layed out in the documentation
+- [X] acrad37 
+- [X] acrad36 
 - [] acrad41
-- [] 405
-> - This is a work in progress. Needs a quality check. updates in branch 405
+- [] 405 (AR DONE. NEED BH AND SV)
+> - Needs a quality check
 - [] 406
 - [x] 436 
->- [] BH addendum addition
+- [] BH addendum addition for all measures. where do BH addendums sit?
  
 
 - [] As part of the new job, create an output that provides all of the noncompliant cases, and the necessary information to submit an addendum.

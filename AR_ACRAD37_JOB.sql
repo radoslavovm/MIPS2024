@@ -78,3 +78,28 @@ INNER JOIN Caboodle.dbo.ProviderDim on ImagingFact.FinalizingProviderDurableKey 
 INNER JOIN Caboodle.dbo.DepartmentDim on ImagingFact.PerformingDepartmentKey = DepartmentDim.DepartmentKey
 WHERE departmentdim.departmentcenter = 'Advanced Radiology Partners' 
 AND CONVERT(int,ROUND(DATEDIFF(hour, ACRAD37_CTE.DOB, ACRAD37_CTE.APPOINTMENTDATE)/8766.0,0)) >= 18
+;
+
+UPDATE MIPS.DBO.ACRAD37_PE_FINAL_2024
+SET NUMERATOR_RESPONSE_VALUE = 'Y'
+WHERE  NUMERATOR_RESPONSE_VALUE = 'N'
+AND left(MIPS.DBO.ACRAD37_PE_FINAL_2024.EXAM_UNIQUE_ID, 2) in ('AR')
+AND EXISTS 
+	(SELECT DISTINCT MIPS.DBO.ACRAD37_PE_FINAL_2024.EXAM_UNIQUE_ID
+		FROM MIPS.DBO.MIPS.DBO.ACRAD37_PE_FINAL_2024
+		Inner join comm4_hhc.dbo.[order] 
+			ON [order].FillerOrderNumber = MIPS.DBO.ACRAD37_PE_FINAL_2024.EXAM_UNIQUE_ID
+		INNER JOIN COMM4_HHC.DBO.Report 
+			ON [order].ReportID = Report.ReportID
+		INNER JOIN comm4_HHC.dbo.reportaddendum 
+			ON report.reportid = reportaddendum.OriginalReportID
+		INNER JOIN comm4_HHC.dbo.report AS addend 
+			ON addend.reportid = ReportAddendum.AddendumReportID
+		WHERE EXISTS (
+			SELECT 1 
+			FROM ARC_DW.DBO.REPORT_PHRASES
+			WHERE CRITERIA = 'Y' AND MEASURE = 'ACRAD37'
+			AND addend.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
+				)
+			)
+;
