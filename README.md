@@ -34,7 +34,7 @@ Update all of the queries with the new logic. Document as you go.
 - [X] acrad37 
 - [X] acrad36 
 - [] acrad41
-- [] 405 (AR DONE. NEED BH AND SV)
+- [1/2] 405 
 > - Needs a quality check
 - [] 406
 - [x] 436 
@@ -43,5 +43,7 @@ Update all of the queries with the new logic. Document as you go.
 
 - [] As part of the new job, create an output that provides all of the noncompliant cases, and the necessary information to submit an addendum.
   Add documentation on these results. 
+
+- [] Addendum query currently is only checking for compliance, not a case where the addendum might exclude the report. we need to accomodate for this somehow. 
 
 Add links in this read me to all of the measure documentation
