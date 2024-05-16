@@ -56,6 +56,8 @@ Update all of the queries with the new logic. Document as you go.
 > - Needs a quality check
 - [] 406
 - [X] 436 
+- [] MSN13
+- [] MSN15
 - [] BH addendum addition for all measures. where do BH addendums sit?
  
 
