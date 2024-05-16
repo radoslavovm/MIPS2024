@@ -1,10 +1,11 @@
 DROP TABLE IF EXISTS MIPS.DBO.ACRAD41_PET_2024;
+
 SELECT 
 [REPORT].REPORTID
 , 'ACRAD41' AS MEASURE_NUMBER
 , pd.lastname + ', ' + pd.firstname AS PATIENT_NAME
 , Patient.MRN AS MRN
-,patient.DOB
+, patient.DOB
 , patient.Sex
 , [ORDER].FillerOrderNumber AS ACCESSION
 ,  convert(varchar(10), [order].startdate, 101) as APPOINTMENTDATE

@@ -1,4 +1,8 @@
+-- 3.5 MIN RUNTIME 5/16/2024
 USE COMM4_HHC;
+
+--TRUNCATE TABLE MIPS_BRA.DBO.CAT_436_2024;
+
 INSERT INTO MIPS_BRA.DBO.CAT_436_2024([APPOINTMENTDATE],[TIN],[NPI],[READING_RADIOLOGIST],[MRN],[PATIENT_NAME],
 [PATIENT_AGE],[SEX],[PATIENT_MEDICARE_BENEFICIARY],[PATIENT_MEDICARE_ADVANTAGE],[MEASURE_NUMBER],[APPOINTMENTREASON],[CPT_CODE],[DENOMINATOR_DIAGNOSIS_CODE],
 [ACCESSION],[MODALITY],[NUMERATOR_RESPONSE_VALUE],[MEASURE_EXTENSION_NUM],[EXTENSION_RESPONSE_VALUE])
@@ -45,21 +49,21 @@ SELECT DISTINCT ReportID, Report.SignerAcctID, report.lastmodifieddate,
 FROM COMM4_HHC.DBO.Report
 WHERE Report.lastmodifieddate >= '01/01/2024' 
 ) AS R 
-Inner join comm4_hhc.dbo.[order] on R.reportid = [order].reportid
-inner join comm4_hhc.dbo.visit on [order].visitid = visit.visitid
-inner join comm4_hhc.dbo.patient on patient.patientid = visit.patientid
-inner JOIN COMM4_HHC.DBO.PersonalInfo PatientDemo on Patient.PersonalInfoID = PatientDemo.PersonalInfoID 
-inner JOIN COMM4_HHC.DBO.Account b on R.SignerAcctID = b.AccountID  
-inner JOIN COMM4_HHC.DBO.PersonalInfo ON b.PersonalInfoID = PersonalInfo.PersonalInfoID 
-inner join Epic_SVMC.dbo.ImagingFact on [order].fillerordernumber = ImagingFact.img_accession_num
-inner join Caboodle.dbo.[providerdim] on ImagingFact.IMG_FINALIZING_PROV_ID= [providerdim].providerkey and [providerdim].npi <> '*Unspecified' 
-inner join Epic_SVMC.dbo.EncounterFact  on ImagingFact.IMG_PERF_ENC_KEY = EncounterFact.EncounterKey
+INNER JOIN comm4_hhc.dbo.[order] on R.reportid = [order].reportid AND [ORDER].SITEID = 7 
+INNER JOIN comm4_hhc.dbo.visit on [order].visitid = visit.visitid
+INNER JOIN comm4_hhc.dbo.patient on patient.patientid = visit.patientid
+INNER JOIN COMM4_HHC.DBO.PersonalInfo PatientDemo on Patient.PersonalInfoID = PatientDemo.PersonalInfoID 
+INNER JOIN COMM4_HHC.DBO.Account b on R.SignerAcctID = b.AccountID  
+INNER JOIN COMM4_HHC.DBO.PersonalInfo ON b.PersonalInfoID = PersonalInfo.PersonalInfoID 
+INNER JOIN Epic_SVMC.dbo.ImagingFact on [order].fillerordernumber = ImagingFact.img_accession_num
+INNER JOIN Caboodle.dbo.[providerdim] on ImagingFact.IMG_FINALIZING_PROV_ID= [providerdim].providerkey and [providerdim].npi <> '*Unspecified' 
+INNER JOIN Epic_SVMC.dbo.EncounterFact  on ImagingFact.IMG_PERF_ENC_KEY = EncounterFact.EncounterKey
 -- SEEMS TO BE A LARGE AMOUNT OF DUPLICATES HERE, SO JOINING ON SELECT OF ONLY THE DISTINCT NECESSARY FIELDS
-INNER join (select distinct PayorFinancialClass, BenefitPlanName, CoverageKey 
+INNER JOIN (select distinct PayorFinancialClass, BenefitPlanName, CoverageKey 
 			from Epic_SVMC.dbo.CoverageDim) as CoverageDim  
 				on EncounterFact.PrimaryCoverageKey = CoverageDim.CoverageKey
 INNER JOIN Caboodle.dbo.DepartmentDim on ImagingFact.IMG_PERFORMING_DEPT_KEY = DepartmentDim.DepartmentKey
-LEFT OUTER JOIN MIPS.DBO.HHC_CPT_PIVOT ON [ORDER].ProcedureCodeList = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
+INNER JOIN MIPS.DBO.HHC_CPT_PIVOT ON [ORDER].ProcedureCodeList = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
 						 AND MIPS.DBO.HHC_CPT_PIVOT.CPT  IN (
 						   '70450', '70460', '70470', '70480', '70481', '70482', '70486', '70487', '70488', '70490', '70491', '70492', '70496', '70498', '71250', '71260', '71270', '71271'
 						 , '71275', '72125', '72126', '72127', '72128', '72129', '72130', '72131', '72132', '72133', '72191', '72192', '72193', '72194', '73200', '73201', '73202', '73206', '73700', '73701'
@@ -74,8 +78,8 @@ AND CONVERT(int,ROUND(DATEDIFF(hour,patient.dob,[ORDER].STARTDATE)/8766.0,0))>= 
 UPDATE MIPS_BRA.DBO.CAT_436_2024
 SET NUMERATOR_RESPONSE_VALUE = 'G9637'
 WHERE  NUMERATOR_RESPONSE_VALUE = 'G9638'
-AND EXISTS 
-	(SELECT DISTINCT EXAM_UNIQUE_ID
+AND ACCESSION IN 
+	(SELECT DISTINCT ACCESSION
 		FROM MIPS_BRA.DBO.CAT_436_2024
 		Inner join comm4_hhc.dbo.[order] 
 			ON [order].FillerOrderNumber = CAT_436_2024.ACCESSION

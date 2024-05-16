@@ -19,7 +19,7 @@ WITH PT1_405_CTE (REPORTID
 )
 AS (
 SELECT DISTINCT 
-REPORT.REPORTID
+R.REPORTID
 , '405' AS MEASURE_NUMBER
 , RTRIM(PatientDemo.LastName + ', ' + PatientDemo.FirstName + ' ' + case when PatientDemo.MiddleName is null or PatientDemo.MiddleName = '' then '' else PatientDemo.Middlename end) AS PATIENT_NAME
 , PATIENT.MRN 
@@ -33,20 +33,27 @@ REPORT.REPORTID
 , ARC_DW.dbo.Pull_HeadersV2 (contenttext, 'KidneyS:', DEFAULT) AS KIDNEY
 , CONCAT(ARC_DW.dbo.Pull_HeadersV2 (contenttext, 'AdrenalS:', DEFAULT)  
 , ARC_DW.dbo.Pull_HeadersV2 (contenttext, 'KidneyS:', DEFAULT)) AS ABDOMINAL
-, report.contenttext as REPORTCONTENT
+, R.ContentText as REPORTCONTENT
+FROM (
+SELECT DISTINCT ReportID, ContentText, DictatorAcctID, SignerAcctID
 FROM COMM4_HHC.DBO.Report 
-INNER JOIN COMM4_HHC.DBO.[Order] ON Report.ReportID = [Order].ReportID 
+-- filter out any reports that have a phrase that should be excluded from the denominator 
+WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
+	WHERE DENOMINATOR = 'EXCLUDE' AND MEASURE = '405'
+	and ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%'))
+) AS R
+INNER JOIN COMM4_HHC.DBO.[Order] ON R.ReportID = [Order].ReportID 
 INNER JOIN COMM4_HHC.DBO.Visit ON [Order].VisitID = Visit.VisitID 
 INNER JOIN COMM4_HHC.DBO.Patient ON Visit.PatientID = Patient.PatientID 
 left outer JOIN COMM4_HHC.DBO.PersonalInfo PatientDemo on Patient.PersonalInfoID = PatientDemo.PersonalInfoID 
-left outer join COMM4_HHC.DBO.Account ON Report.DictatorAcctID = Account.AccountID 
+left outer join COMM4_HHC.DBO.Account ON R.DictatorAcctID = Account.AccountID 
 left outer JOIN COMM4_HHC.DBO.PersonalInfo pb on Account.PersonalInfoID = pb.PersonalInfoID 
-left outer JOIN COMM4_HHC.DBO.Account b on Report.SignerAcctID = b.AccountID 
+left outer JOIN COMM4_HHC.DBO.Account b on R.SignerAcctID = b.AccountID 
 left outer JOIN COMM4_HHC.DBO.PersonalInfo ON b.PersonalInfoID = PersonalInfo.PersonalInfoID 
 INNER JOIN MIPS.DBO.HHC_CPT_PIVOT ON [ORDER].ProcedureCodeList = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
 										AND MIPS.DBO.HHC_CPT_PIVOT.CPT IN ('71250','71260','71270','71271','71275','71555','72131','72191','72192','72193','72194','72195','72196','72197','72198','74150','74160','74170','74176','74177','74178','74181','74182','74183')
 WHERE [ORDER].SITEID IN (8)  
-AND REPORT.LastModifiedDate >= '01/01/2024'
+AND [ORDER].LastModifiedDate >= '01/01/2024'
 AND (ContentText LIKE '%RENAL%' 
 	OR ContentText LIKE '%KIDNEY%')
 AND CONVERT(int,ROUND(DATEDIFF(hour,PATIENT.dob,CONVERT(VARCHAR(10), CONVERT(VARCHAR(12), [ORDER].STARTDATE, 101), 101))/8766.0,0)) >= 18
@@ -54,6 +61,22 @@ AND CONVERT(int,ROUND(DATEDIFF(hour,PATIENT.dob,CONVERT(VARCHAR(10), CONVERT(VAR
 
 SELECT F.*
 , CASE 
+	WHEN (ABDOMINAL like '%too small to characterize%' -- NOTE: WHEN A VALUE IS PASSED THROUGH THIS CASE IT IS MARKED WITH THE FIRST CONDITION THAT IS TRUE, THAT MEANS TO BE MARKED EXCLUDE THE REST OF THE STATEMENTS ARE FALSE
+	OR ABDOMINAL like '%too small to reliably characterize%'
+	OR ABDOMINAL LIKE '%SUBCENTIMETER%'
+	OR ABDOMINAL LIKE '%Accuracy may be limited in such a small lesion%'
+	OR ((ADRENAL LIKE '%UNREMARKABLE%' OR ADRENAL LIKE '%No suspicious mass%') 
+			AND (KIDNEY LIKE '%No suspicious renal mass%'
+			OR KIDNEY LIKE '%No suspicious SOLID mass%'
+			OR KIDNEY LIKE '%No SOLID RENAL mass%'
+			OR KIDNEY LIKE '%No suspicious mass%'
+			OR KIDNEY LIKE '%No nephrolithiasis%'
+			OR KIDNEY LIKE '%no hydronephrosis%'
+			OR KIDNEY LIKE '%UNREMARKABLE%'
+			OR KIDNEY LIKE '%Accuracy may be limited in such a small lesion%'
+			OR KIDNEY LIKE '%incompletely characterized without IV contrast%'
+			OR KIDNEY LIKE '%difficult to characterize%'))
+	) THEN 'EXCLUDE'
 	WHEN (
 	KIDNEY like '%Bosniak%'
 	OR KIDNEY like '%simple appear%'
@@ -75,32 +98,11 @@ SELECT F.*
 	OR REPLACE(ADRENAL, ' ', '') LIKE '%0.[1-9]CM%'
 	OR REPLACE(ADRENAL, ' ', '') LIKE '%1CM%'
 	) THEN 'SMALL'
-	WHEN (ABDOMINAL like '%too small to characterize%' -- NOTE: WHEN A VALUE IS PASSED THROUGH THIS CASE IT IS MARKED WITH THE FIRST CONDITION THAT IS TRUE, THAT MEANS TO BE MARKED EXCLUDE THE REST OF THE STATEMENTS ARE FALSE
-	OR ABDOMINAL like '%too small to reliably characterize%'
-	OR ABDOMINAL LIKE '%SUBCENTIMETER%'
-	OR ((ADRENAL LIKE '%UNREMARKABLE%' OR ADRENAL LIKE '%No suspicious mass%') 
-			AND (KIDNEY LIKE '%No suspicious renal mass%'
-			OR KIDNEY LIKE '%No suspicious SOLID mass%'
-			OR KIDNEY LIKE '%No SOLID RENAL mass%'
-			OR KIDNEY LIKE '%No suspicious mass%'
-			OR KIDNEY LIKE '%No nephrolithiasis%'
-			OR KIDNEY LIKE '%no hydronephrosis%'
-			OR KIDNEY LIKE '%UNREMARKABLE%'
-			OR KIDNEY LIKE '%NO FOCAL MASS%'))
-	) THEN 'EXCLUDE'
+	
 	ELSE 'OTHER' END AS CATEGORY
 INTO MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE
 FROM PT1_405_CTE AS F
-INNER JOIN (
-SELECT  DISTINCT ReportID
-FROM PT1_405_CTE
--- filter out any reports that have a phrase that should be excluded from the denominator 
-WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
-	WHERE CRITERIA = 'EXCLUDE' AND MEASURE = '405'
-	and PT1_405_CTE.REPORTCONTENT LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%'))
-) AS R 
-ON R.ReportID = f.ReportID
-INNER JOIN comm4_hhc.dbo.[order] on R.reportid = [order].reportid
+INNER JOIN comm4_hhc.dbo.[order] on F.reportid = [order].reportid
 INNER JOIN comm4_hhc.dbo.visit on [order].visitid = visit.visitid
 INNER JOIN comm4_hhc.dbo.patient on patient.patientid = visit.patientid
 
