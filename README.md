@@ -76,3 +76,36 @@ that one or more of the following dose reduction techniques were used <br>
 - [] MSN15 TIRADS, this measure is under monitoring. Addendums should not be sent for this measure until Dr Muro decides it is appropriate
 - [] BH addendum addition for all measures. Where do BH addendums sit?
 - [] Addendum query currently is only checking for compliance, not a case where the addendum might exclude the report (ex. additional information of medical history that excludes the report from the denominator). We need to accomodate for this somehow. 
+
+# Adendum Process
+Use the ADRAD_COMPLIANCE.sql, BH_COMPLIANCE.sql, and SV_COMPLIANCE.sql scripts. The result will be all noncompliant cases: 
+  Accession number, MRN, Radiologist, Report text, Measure, Date, and Addendum text. 
+
+Examine the report and addendum to pin point the reason for the non compliance. 
+
+## Send an email to the radiologist using the following template: 
+​
+Good day **[Radiologist]** , 
+
+The following report is missing information necessary to satisfy MIPS quality requirements.  
+The measure is related to **[ The title of the measure (they can be found on the first line of each measure, or in the documentation) ]**. <br>
+This applies to exams where <br>
+**[Provide the brief descriptions listed in the read me for the measure in question]**
+
+An exception may apply if there is medical history reasons that might require a follow up. Your reports may qualify for the exception criteria.  Is there any relevant patient history that has not been specified in the report?
+
+FillerOrderNumber/ Accession Number : **[Accession]** <br>
+Date: **[Date]** <br>
+MRN: **[MRN]** <br>
+
+Reasoning for addendum request: **[provide reasoning]**
+
+Let me know if you have any questions. 
+
+Thank you, 
+**[Your name]** 
+
+Other Comments 
+<br>
+---
+If the doctor has multiple addendums, you can add them to one email, just make sure it is clear the reasoning behind each one. 
