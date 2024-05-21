@@ -96,3 +96,4 @@ AND ACCESSION IN
 			AND addend.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
 				)
 			)
+;

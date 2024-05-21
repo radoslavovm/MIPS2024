@@ -12,7 +12,7 @@ ARC_DW.DBO.REPORT_PHRASES
   the report_phrases.sql file is how we insert new phrases that need to be considered in the mips measure calculation. This is how we rectify false negative numerator response values 
 
 ## The Measures 
-
+(The descriptions are for a quick understanding of the measure. For a more detailed understanding of which reports are included and for the qualifications of compliance, click on the documentation link)
 ### ACRAD37
 Interpretation of CT Pulmonary Angiography (CTPA) for Pulmonary Embolism
   > CT pulmonary angiography (CTPA) with a finding of PE that specify the branching order level of the most proximal level of embolus (i.e. main, lobar, interlobar, segmental sub segmental)
@@ -36,34 +36,43 @@ Use of Quantitative Criteria for Oncologic FDG PET Imaging
   > [Documentation](https://www.acr.org/-/media/ACR/Files/Registries/QCDR/GRID-MIPS-Simplified-Measure-Specifications.pdf)
 
 ### 405
+Appropriate Follow-up Imaging for Incidental Abdominal Lesions
+
+Reports with one or more of the following noted incidentally with a specific recommendation for no follow‐up imaging recommended based on radiological  findings: <br>
+> • Cystic renal lesion that is simple appearing (Bosniak I or II) <br>
+> OR <br>
+> • Adrenal lesion less than or equal to 1.0 cm <br>
+> OR <br>
+> • Adrenal lesion greater than 1.0 cm but less than or equal to 4.0 cm classified as likely benign by unenhanced CT or 
+washout protocol CT, or MRI with in- and opposed-phase sequences or other equivalent institutional imaging 
+protocols 
+
   > [Documentation](https://qpp.cms.gov/docs/QPP_quality_measure_specifications/CQM-Measures/2020_Measure_405_MIPSCQM.pdf)
 
 ### 406
+Appropriate Follow-up Imaging for Incidental Thyroid Nodules in Patients <br>
+*** This is an inverse measure. AKA the lower the score the better <br>
+Final reports for CT, CTA, MRI or MRA of the chest or neck with follow-up imaging recommended for reports with 
+an incidentally-detected thyroid nodule < 1.0 cm noted
+
   > [Documentation](https://qpp.cms.gov/docs/QPP_quality_measure_specifications/CQM-Measures/2024_Measure_406_MIPSCQM.pdf)
 
 ### 436
+Radiation Consideration for Adult CT: Utilization of Dose Lowering Techniques
+
+Computed tomography (CT) with documentation 
+that one or more of the following dose reduction techniques were used <br>
+> • Automated exposure control <br>
+> • Adjustment of the mA and/or kV according to patient size <br>
+> • Use of iterative reconstruction technique
+
   > [Documentation](https://qpp.cms.gov/docs/QPP_quality_measure_specifications/CQM-Measures/2020_Measure_436_MIPSCQM.pdf)
 
 
 
 # TO DO 
-Update all of the queries with the new logic. Document as you go. 
-- [x] Add the new column for report prases table that is layed out in the documentation
-- [X] acrad37 
-- [X] acrad36 
-- [] acrad41
-- [1/2] 405 
-> - Needs a quality check
-- [] 406
-- [X] 436 
+- [] Measure 405 needs a quality check. Also a discussion with doctors to determine clearer language for the specifications of this measure 
 - [] MSN13
-- [] MSN15
-- [] BH addendum addition for all measures. where do BH addendums sit?
- 
-
-- [X] As part of the new job, create an output that provides all of the noncompliant cases, and the necessary information to submit an addendum.
-  Add documentation on these results. 
-
-- [] Addendum query currently is only checking for compliance, not a case where the addendum might exclude the report. we need to accomodate for this somehow. 
-
-Add links in this read me to all of the measure documentation
+- [] MSN15 TIRADS, this measure is under monitoring. Addendums should not be sent for this measure until Dr Muro decides it is appropriate
+- [] BH addendum addition for all measures. Where do BH addendums sit?
+- [] Addendum query currently is only checking for compliance, not a case where the addendum might exclude the report (ex. additional information of medical history that excludes the report from the denominator). We need to accomodate for this somehow. 
