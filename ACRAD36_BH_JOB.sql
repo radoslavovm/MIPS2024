@@ -47,6 +47,7 @@ BH_ExamDetails.[Patient Name]
 , BH_ExamDetails.BirthDate
 , BH_Powerscribe2.SEX
 , BRIDGEPORT_BPI.[Custom Payor Name (Original)] AS INSURANCE
+-- one pass measure must be present for compliance. Refer to report_phrases table to see the phrases
 , CASE WHEN (R.pass_measure IS NOT NULL)				
 		THEN 'Y' ELSE 'N' END AS NUMERATOR_RESPONSE_VALUE 
 , BRIDGEPORT_COMPENDIUM.CPT
@@ -75,3 +76,5 @@ and BH_ExamDetails.[Exam Name] like '%chest%'
 WHERE (A.SEX = 'F' AND A.PATIENT_AGE BETWEEN 18 AND 65) 
 	OR (A.SEX = 'M' AND A.PATIENT_AGE BETWEEN 18 AND 50)
 ;
+
+--ADDENDUMS?!

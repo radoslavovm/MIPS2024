@@ -1,5 +1,14 @@
 
 -- REPORT_PHRASES TABLE
+/*
+
+PHRASE_ID PRIMARY KEY of the table. 
+PHRASE the phrase to search for in reports 
+MEASURE the measure that the phrase is relevant to 
+CRITERIA to signify compliance or noncompliance based on phrase (ex. Y, N)
+DENOMINATOR to determine if the report should be inculded in the measure calculation based on the phrase (ex. INCLUDE, EXCLUDE)
+)
+*/
 
 /*
 CREATE TABLE ARC_DW.DBO.REPORT_PHRASES(

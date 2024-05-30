@@ -28,9 +28,9 @@ Incidental Coronary Artery Calcification Reported on Chest CT
 ### ACRAD41
 Use of Quantitative Criteria for Oncologic FDG PET Imaging
   non-CNS oncologic FDG PET studies that include at a minimum:
-  > a. Serum glucose (e.g. finger stick at time of injection)
-  > b. Uptake time (interval from injection to initiation of imaging)
-  > c. One reference background (e.g. volumetric normal liver or mediastinal blood pool) SUV measurement, along with description of the SUV measurement type (e.g. SUVmax) and normalization method (e.g. BMI)
+  > a. Serum glucose (e.g. finger stick at time of injection) <br>
+  > b. Uptake time (interval from injection to initiation of imaging) <br>
+  > c. One reference background (e.g. volumetric normal liver or mediastinal blood pool) SUV measurement, along with description of the SUV measurement type (e.g. SUVmax) and normalization method (e.g. BMI) <br>
   > d. At least one lesional SUV measurement OR diagnosis of "no disease-specific abnormal uptake"
 
   > [Documentation](https://www.acr.org/-/media/ACR/Files/Registries/QCDR/GRID-MIPS-Simplified-Measure-Specifications.pdf)

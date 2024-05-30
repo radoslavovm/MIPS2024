@@ -112,3 +112,26 @@ AND ACCESSION IN
 				)
 			)
 ;
+
+-- DELETE FROM TABLE IF THE ADDENDUM CLAIMS REPORT SHOULD BE EXEMPT. (ADD VALUES TO REPORT_PHRASES TABLE AS NEEDED)
+DELETE FROM  MIPS_BRA.DBO.ACRAD37_PE_2024
+WHERE left(ACRAD37_PE_2024.ACCESSION, 2) in ('SV')
+AND EXAM_UNIQUE_ID IN 
+	(SELECT DISTINCT ACRAD37_PE_2024.EXAM_UNIQUE_ID
+		FROM MIPS_BRA.DBO.ACRAD37_PE_2024
+		Inner join comm4_hhc.dbo.[order] 
+			ON [order].FillerOrderNumber = ACRAD37_PE_2024.EXAM_UNIQUE_ID
+		INNER JOIN COMM4_HHC.DBO.Report 
+			ON [order].ReportID = Report.ReportID
+		INNER JOIN comm4_HHC.dbo.reportaddendum 
+			ON report.reportid = reportaddendum.OriginalReportID
+		INNER JOIN comm4_HHC.dbo.report AS addend 
+			ON addend.reportid = ReportAddendum.AddendumReportID
+		WHERE EXISTS (
+			SELECT 1 
+			FROM ARC_DW.DBO.REPORT_PHRASES
+			WHERE DENOMINATOR = 'EXCLUDE' AND MEASURE = 'ACRAD37'
+			AND addend.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
+				)
+			)
+;

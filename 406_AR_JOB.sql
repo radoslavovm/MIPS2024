@@ -1,6 +1,8 @@
 DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024;
+DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024_FINAL;
+
 SELECT DISTINCT   
-REPORT.REPORTID
+R.REPORTID
 , '406' AS MEASURE_NUMBER
 , RTRIM(PatientDemo.LastName + ', ' + PatientDemo.FirstName + ' ' + case when PatientDemo.MiddleName is null or PatientDemo.MiddleName = '' then '' else PatientDemo.Middlename end) AS PATIENT_NAME
 , PATIENT.MRN 
@@ -14,31 +16,27 @@ REPORT.REPORTID
 , CONCAT(
 [ARC_DW].dbo.Pull_HeadersV2 (ContentText, 'Soft Tissues:', DEFAULT) 
 , [ARC_DW].dbo.Pull_HeadersV2 (ContentText, 'Thyroid Gland:', DEFAULT)
-, [ARC_DW].dbo.Pull_HeadersV2 (ContentText, 'IMPRESSION:', DEFAULT)) as ThyroidText
-, ContentText 
-, HI.PHRASE_ID
+, [ARC_DW].dbo.Pull_HeadersV2 (ContentText, 'IMPRESSION:', DEFAULT)) as ThyroidText --These are the 3 sections that may contain relevant information to this measure 
+, ContentText -- the whole report
 into MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024
-FROM        
-COMM4_HHC.DBO.Report 
-INNER JOIN COMM4_HHC.DBO.[Order] ON Report.ReportID = [Order].ReportID 
+FROM comm4_HHC.dbo.report as R
+INNER JOIN COMM4_HHC.DBO.[Order] ON R.ReportID = [Order].ReportID AND [ORDER].SITEID = 8
 INNER JOIN COMM4_HHC.DBO.Visit ON [Order].VisitID = Visit.VisitID 
 INNER JOIN COMM4_HHC.DBO.Patient ON Visit.PatientID = Patient.PatientID 
 left outer JOIN COMM4_HHC.DBO.PersonalInfo PatientDemo on Patient.PersonalInfoID = PatientDemo.PersonalInfoID 
-left outer join COMM4_HHC.DBO.Account ON Report.DictatorAcctID = Account.AccountID 
+left outer join COMM4_HHC.DBO.Account ON R.DictatorAcctID = Account.AccountID 
 left outer JOIN COMM4_HHC.DBO.PersonalInfo pb on Account.PersonalInfoID = pb.PersonalInfoID 
-left outer JOIN COMM4_HHC.DBO.Account b on Report.SignerAcctID = b.AccountID 
+left outer JOIN COMM4_HHC.DBO.Account b on R.SignerAcctID = b.AccountID 
 left outer JOIN COMM4_HHC.DBO.PersonalInfo ON b.PersonalInfoID = PersonalInfo.PersonalInfoID 
 INNER JOIN MIPS.DBO.HHC_CPT_PIVOT ON [ORDER].ProcedureCodeList = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
-	AND MIPS.DBO.HHC_CPT_PIVOT.CPT  IN ('70486','70487','70488','70490','70491','70492','70498','70540','70542','70543','70547','70548','70549','71250','71260','71270','71271','71555','72125','72126','72127','71550','71551','71552','72141','72142','72156')
-LEFT OUTER JOIN (SELECT * FROM ARC_DW.DBO.REPORT_PHRASES WHERE MEASURE = '406') AS HI 
-	ON ContentText LIKE concat('%',HI.PHRASE,'%')
-WHERE  [ORDER].SITEID IN (8) 
-and (report.contenttext LIKE '%THYROID%' and report.contenttext like '%nodule%') 
-AND (REPORT.LastModifiedDate >= '1/1/2024' AND REPORT.LastModifiedDate < '1/1/2025')
-AND PHRASE_ID IS NULL
+	AND MIPS.DBO.HHC_CPT_PIVOT.CPT  IN ('70486','70487','70488','70490','70491','70492','70498','70540','70542','70543','70547','70548','70549'
+		,'71250','71260','71270','71271','71555','72125','72126','72127','71550','71551','71552','72141','72142','72156'
+		)
+WHERE [ORDER].SITEID IN (8) 
+and (R.contenttext LIKE '%THYROID%' and R.contenttext like '%nodule%') 
+AND (R.LastModifiedDate >= '1/1/2024' AND R.LastModifiedDate < '1/1/2025')
 ;
 
-DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024_FINAL;
 SELECT 
 EXAM_DATE_TIME
 , PHYSICIAN_GROUP_TIN
@@ -63,7 +61,7 @@ EXAM_DATE_TIME
 		OR ThyroidText LIKE '%No significant thyroid%'
 		OR ThyroidText LIKE '%Thyroid Gland:  Unremarkable%'
 		OR (ThyroidText NOT LIKE '%thyroid%' AND ThyroidText NOT LIKE '%nodule%')
-		OR addendtext LIKE '%US THYROID NOT RECOMMEND%')
+		OR addendtext LIKE '%US THYROID NOT RECOMMEND%') -- if an adendum was added... this will not cover addendums that explain why report should be excluded
 		THEN 'G9556'
 		ELSE 
 			CASE 
@@ -109,7 +107,15 @@ FROM (
 , report.ContentText
 , addend.Contenttext as addendtext
 FROM MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024
-inner join comm4_HHC.dbo.report on MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024.reportid = report.reportid
+inner join (
+SELECT DISTINCT ReportID, ContentText, DictatorAcctID, SignerAcctID, LastModifiedDate
+FROM COMM4_HHC.DBO.Report 
+-- filter out any reports that have at least one phrase that should be excluded from the denominator 
+WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES -- more info on this table in the readme.md
+	WHERE DENOMINATOR = 'EXCLUDE' AND MEASURE = '406'
+	and ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%'))
+) AS R ON INCIDENTAL_THYROID_NODULES_406_2024.ReportID = R.ReportID
+INNER JOIN comm4_HHC.dbo.report ON R.ReportID = Report.ReportID
 Inner join comm4_hhc.dbo.[order] on report.reportid = [order].reportid
 inner join comm4_hhc.dbo.visit on [order].visitid = visit.visitid
 inner join comm4_hhc.dbo.patient on patient.patientid = visit.patientid
@@ -125,10 +131,6 @@ MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024.MODALITY in ('CT', 'MR')
 AND left([imagingfact].accessionnumber, 2) not in ('CH', 'HM', 'MS', 'SV', 'WH') 
 AND departmentdim.departmentcenter = 'Advanced Radiology Partners' 
 AND CONVERT(int,ROUND(DATEDIFF(hour,PATIENT.dob, MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024.appointmentdate)/8766.0,0)) >= 18
-GROUP BY APPOINTMENTDATE, MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024.MODALITY, [PROVIDERDIM].npi, MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024.READING_RADIOLOGIST
-, PATIENT.MRN, PATIENT.dob, PATIENT.SEX, CoverageDim.PayorFinancialClass, CoverageDim.benefitplanname, MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024.APPOINTMENTREASON
-, MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024.CPT, [ORDER].FILLERORDERNUMBER, MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024.MODALITY
-, MIPS.DBO.INCIDENTAL_THYROID_NODULES_406_2024.MCODE, ThyroidText, report.ContentText, addend.Contenttext
 ) AS X
 WHERE replace(CONCAT(ThyroidText, addendtext) , ' ', '') NOT LIKE '%[1-9].[0-9]CM%' 
 AND replace(CONCAT(ThyroidText, addendtext) , ' ', '') NOT LIKE '%[1-9].[0-9] x [0-9].[0-9]cm%' 

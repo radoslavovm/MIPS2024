@@ -16,6 +16,7 @@ REPORT.ReportID, Report.SignerAcctID
 , R.performance_met
 FROM (
 SELECT  DISTINCT ReportID,
+-- Does the report have at least one of the phrases in it. if so, pass_measure will return the first phrase found
 (SELECT TOP 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
 	WHERE CRITERIA = 'Y' AND MEASURE = '436'
 	and Report.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
@@ -79,6 +80,7 @@ CONVERT(VARCHAR(10), APPOINTMENTDATE, 101) as EXAM_DATE_TIME
 , CAT436_CTE.APPOINTMENTREASON
 , MIPS.DBO.HHC_CPT_PIVOT.CPT AS CPT_CODE
 , '' as DENOMINATOR_DIAGNOSIS_CODE
+-- one pass measure must be present for compliance. Refer to report_phrases table to see the phrases
 , CASE WHEN (
 	CAT436_CTE.performance_met IS NOT NULL
 	) THEN 'G9637' ELSE 'G9638' END AS NUMERATOR_RESPONSE_VALUE
@@ -130,3 +132,4 @@ AND EXAM_UNIQUE_ID IN
 			AND addend.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
 				)
 			)
+			;

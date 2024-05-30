@@ -36,6 +36,7 @@ SELECT DISTINCT
 , '' as DENOMINATOR_DIAGNOSIS_CODE
 , [ORDER].FILLERORDERNUMBER AS ACCESSION
 , '' AS MODALITY
+-- Does the report have at least one of the phrases in it. if so, pass_measure will return the first phrase found
 , CASE WHEN (performance_met IS NOT NULL) THEN 'G9637' ELSE 'G9638' END AS NUMERATOR_RESPONSE_VALUE
 , '' AS MEASURE_EXTENSION_NUM
 , '' AS EXTENSION_RESPONSE_VALUE

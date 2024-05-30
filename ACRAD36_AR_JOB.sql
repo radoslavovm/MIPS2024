@@ -36,7 +36,7 @@ WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
 	WHERE denominator = 'EXCLUDE' AND MEASURE = 'ACRAD36'
 	and  Report.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%'))
 ) AS R
-INNER JOIN comm4_hhc.dbo.[Order] ON R.ReportID = [Order].ReportID 
+INNER JOIN comm4_hhc.dbo.[Order] ON R.ReportID = [Order].ReportID AND [order].siteid = 8 
 INNER JOIN comm4_hhc.dbo.Visit ON [Order].VisitID = Visit.VisitID 
 INNER JOIN comm4_hhc.dbo.Patient ON Visit.PatientID = Patient.PatientID 
 left outer JOIN comm4_hhc.dbo.PersonalInfo PD on Patient.PersonalInfoID = PD.PersonalInfoID 
@@ -48,9 +48,8 @@ left outer join MIPS.dbo.HHC_CPT_PIVOT p ON P.[MPI: ID] =[ORDER].ProcedureCodeLi
 WHERE [order].siteid = 8 
 and left([order].fillerordernumber, 2) not in ('CH', 'HM', 'MS', 'SV', 'WH') 
 AND P.CPT IN ('71250','71270') 
-and (R.LastModifiedDate >='1/1/2024' 
-AND R.LastModifiedDate < '1/1/2025' 
-and [order].ProcedureDescList like '%CHEST%')
+and R.LastModifiedDate >='1/1/2024' 
+and [order].ProcedureDescList like '%CHEST%'
 )
 
 
@@ -61,7 +60,7 @@ ACRAD36_CTE.APPOINTMENTDATE as EXAM_DATE_TIME
 , case when ACRAD36_CTE.READING_RADIOLOGIST = 'Noel Velasco' then '1922093590' 
        when ACRAD36_CTE.READING_RADIOLOGIST = 'Sudhir Kunchala' then '2005102554'
 	   when ACRAD36_CTE.READING_RADIOLOGIST = 'Thomas Dibartholomeo' then '1598782492'
-	   else ProviderDim.NPI end AS PHYSICIAN_NPI
+	   else ProviderDim.NPI end AS PHYSICIAN_NPI -- These doctors have multiple NPIs so for consistency, hard coding NPI 
 , ACRAD36_CTE.READING_RADIOLOGIST
 , ACRAD36_CTE.REPORTSIGNED
 , ACRAD36_CTE.MRN AS PATIENT_ID
@@ -70,6 +69,7 @@ ACRAD36_CTE.APPOINTMENTDATE as EXAM_DATE_TIME
 , 'ACRAD36' AS MEASURE_NUMBER
 , ACRAD36_CTE.APPOINTMENTREASON
 , ACRAD36_CTE.CPT AS CPT_CODE
+-- one pass measure must be present for compliance. Refer to report_phrases table to see the phrases
 , CASE WHEN ACRAD36_CTE.pass_measure IS NOT NULL THEN 'Y' ELSE 'N' END AS NUMERATOR_RESPONSE_VALUE 
 , ACRAD36_CTE.ACCESSION AS EXAM_UNIQUE_ID
 , ACRAD36_CTE.MCODE  
@@ -89,6 +89,7 @@ and (
 		)
 ;
 
+-- Addendum updates. this will not cover addendums that explain why report should be excluded
 UPDATE MIPS.DBO.ACRAD36_CORONARYARTERY_FINAL_2024
 SET NUMERATOR_RESPONSE_VALUE = 'Y'
 WHERE  NUMERATOR_RESPONSE_VALUE = 'N'
@@ -108,6 +109,28 @@ AND EXAM_UNIQUE_ID IN
 			SELECT 1 
 			FROM ARC_DW.DBO.REPORT_PHRASES
 			WHERE CRITERIA = 'Y' AND MEASURE = 'ACRAD36'
+			AND addend.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
+				)
+			)
+;
+
+-- DELETE FROM TABLE IF THE ADDENDUM CLAIMS REPORT SHOULD BE EXEMPT. (ADD VALUES TO REPORT_PHRASES TABLE AS NEEDED)
+DELETE FROM  MIPS.DBO.ACRAD36_CORONARYARTERY_FINAL_2024
+WHERE EXAM_UNIQUE_ID IN 
+	(SELECT DISTINCT ACRAD36_CORONARYARTERY_FINAL_2024.EXAM_UNIQUE_ID
+		FROM MIPS.DBO.ACRAD36_CORONARYARTERY_FINAL_2024
+		Inner join comm4_hhc.dbo.[order] 
+			ON [order].FillerOrderNumber = ACRAD36_CORONARYARTERY_FINAL_2024.EXAM_UNIQUE_ID
+		INNER JOIN COMM4_HHC.DBO.Report 
+			ON [order].ReportID = Report.ReportID
+		INNER JOIN comm4_HHC.dbo.reportaddendum 
+			ON report.reportid = reportaddendum.OriginalReportID
+		INNER JOIN comm4_HHC.dbo.report AS addend 
+			ON addend.reportid = ReportAddendum.AddendumReportID
+		WHERE EXISTS (
+			SELECT 1 
+			FROM ARC_DW.DBO.REPORT_PHRASES
+			WHERE DENOMINATOR = 'EXCLUDE' AND MEASURE = 'ACRAD36'
 			AND addend.ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
 				)
 			)

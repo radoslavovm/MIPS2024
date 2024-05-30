@@ -1,5 +1,7 @@
 DROP TABLE IF EXISTS MIPS.DBO.CT_364_2024;
-SELECT   DISTINCT
+DROP TABLE IF EXISTS MIPS.DBO.CT_364_2024_FINAL;
+
+SELECT DISTINCT
 REPORT.REPORTID
 , '364' AS MEASURE_NUMBER
  , RTRIM(PatientDemo.LastName + ', ' + PatientDemo.FirstName + ' ' + case when PatientDemo.MiddleName is null or PatientDemo.MiddleName = '' then '' else PatientDemo.Middlename end) AS PATIENT_NAME
@@ -26,11 +28,16 @@ INNER JOIN MIPS.DBO.HHC_CPT_PIVOT ON [ORDER].ProcedureCodeList = MIPS.DBO.HHC_CP
                                                                            '70498', '71250', '71260', '71270', '71275', '72125', '72126', 
 																		   '72127', '72128', '72129', '72130', '74150', '74160', '74170', 
 																		   '74174', '74175', '74176', '74177', '74178')
-WHERE  [ORDER].SITEID = 8 and left([order].fillerordernumber, 2) not in ('CH', 'HM', 'MS', 'SV', 'WH') and [order].explorerstatus IN ('FINAL', 'FINAL (A)')  and ([ORDER].FILLERORDERNUMBER NOT LIKE '%PWH' AND [ORDER].FILLERORDERNUMBER NOT LIKE '%SMA' AND [ORDER].FILLERORDERNUMBER NOT LIKE '%SWC') AND REPORT.LastModifiedDate >= '1/1/2024' and REPORT.LastModifiedDate < '1/1/2025'
-		
+WHERE  [ORDER].SITEID = 8 
+	and left([order].fillerordernumber, 2) not in ('CH', 'HM', 'MS', 'SV', 'WH') 
+	and [order].explorerstatus IN ('FINAL', 'FINAL (A)')  
+	and ([ORDER].FILLERORDERNUMBER NOT LIKE '%PWH' 
+	AND [ORDER].FILLERORDERNUMBER NOT LIKE '%SMA' 
+	AND [ORDER].FILLERORDERNUMBER NOT LIKE '%SWC') 
+	AND REPORT.LastModifiedDate >= '1/1/2024' 
+;
 
 
-DROP TABLE IF EXISTS MIPS.DBO.CT_364_2024_FINAL;
 SELECT DISTINCT  
 CONVERT(VARCHAR(10), APPOINTMENTDATE, 101) as EXAM_DATE_TIME
 , '061614148' as PHYSICIAN_GROUP_TIN
@@ -43,7 +50,7 @@ CONVERT(VARCHAR(10), APPOINTMENTDATE, 101) as EXAM_DATE_TIME
 	   when CT_364_2024.READING_RADIOLOGIST = 'Noel Velasco' then '1922093590' 
 	   when CT_364_2024.READING_RADIOLOGIST = 'Scott Smith' then '1952496424' 
 	   when CT_364_2024.READING_RADIOLOGIST = 'Terence Hughes' then '1053307421' 
-	   else ProviderDim.npi end AS PHYSICIAN_NPI
+	   else ProviderDim.npi end AS PHYSICIAN_NPI -- These doctors have multiple NPIs so for consistency, hard coding NPI
 , CT_364_2024.READING_RADIOLOGIST
 , PATIENT.MRN AS PATIENT_ID
 , CONVERT(int,ROUND(DATEDIFF(hour,patient.dob,mips.dbo.CT_364_2024.appointmentdate)/8766.0,0)) as PATIENT_AGE

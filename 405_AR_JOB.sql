@@ -12,10 +12,10 @@ WITH PT1_405_CTE (REPORTID
 , MODALITY
 , APPOINTMENTREASON
 , Reading_Radiologist
-, ADRENAL  
-, KIDNEY
-, ABDOMINAL
-, REPORTCONTENT
+, ADRENAL  -- Adrenal section of the report 
+, KIDNEY -- Kidney section of the report 
+, ABDOMINAL -- Adrenal + Kidney section of the report 
+, REPORTCONTENT -- the whole report
 )
 AS (
 SELECT DISTINCT 
@@ -37,8 +37,8 @@ R.REPORTID
 FROM (
 SELECT DISTINCT ReportID, ContentText, DictatorAcctID, SignerAcctID
 FROM COMM4_HHC.DBO.Report 
--- filter out any reports that have a phrase that should be excluded from the denominator 
-WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
+-- filter out any reports that have at least one phrase that should be excluded from the denominator 
+WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES -- more info on this table in the readme.md
 	WHERE DENOMINATOR = 'EXCLUDE' AND MEASURE = '405'
 	and ContentText LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%'))
 ) AS R
@@ -52,14 +52,23 @@ left outer JOIN COMM4_HHC.DBO.Account b on R.SignerAcctID = b.AccountID
 left outer JOIN COMM4_HHC.DBO.PersonalInfo ON b.PersonalInfoID = PersonalInfo.PersonalInfoID 
 INNER JOIN MIPS.DBO.HHC_CPT_PIVOT ON [ORDER].ProcedureCodeList = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
 										AND MIPS.DBO.HHC_CPT_PIVOT.CPT IN ('71250','71260','71270','71271','71275','71555','72131','72191','72192','72193','72194','72195','72196','72197','72198','74150','74160','74170','74176','74177','74178','74181','74182','74183')
-WHERE [ORDER].SITEID IN (8)  
+WHERE [ORDER].SITEID IN (8)  -- Advanced Radiology site
 AND [ORDER].LastModifiedDate >= '01/01/2024'
 AND (ContentText LIKE '%RENAL%' 
-	OR ContentText LIKE '%KIDNEY%')
+	OR ContentText LIKE '%KIDNEY%') 
 AND CONVERT(int,ROUND(DATEDIFF(hour,PATIENT.dob,CONVERT(VARCHAR(10), CONVERT(VARCHAR(12), [ORDER].STARTDATE, 101), 101))/8766.0,0)) >= 18
 )
 
-SELECT F.*
+/* 
+The goal of this table is to categorize the reports to cover the many conditions of this measure.
+The categories are : 
+	Benign: Checking for Kidney to be marked as benign. (requires no-followup recommendation)
+	Mid: Adrenal lesions that are > 1cm and < 4cm large. (if report is marked with this, the lesion needs to be marked as benign to require no-followup recommendation)
+	Small: Adrenal is 1 cm or smaller (this requires no-followup recommendation)
+	Exclude: If no lesions are found, in Adrenal AND Kidney, or accuracy of image is limited, then the report is excluded from the denominator of measure 
+	Other: this category is here simply to be able to monitor if this query is not handling any reports. Its for quality checking this query logic. 
+*/
+SELECT F.* -- All of the fields in the CTE portion of the query 
 , CASE 
 	WHEN (
 	KIDNEY like '%Bosniak%'
@@ -67,25 +76,24 @@ SELECT F.*
 	OR KIDNEY like '%BENIGN SIMPLE CYST%'
 	OR KIDNEY like '%BENIGN CYST%'
 	OR KIDNEY like '%SIMPLE CYST%'
-	OR KIDNEY LIKE '%adenoma%'
-	OR ADRENAL LIKE '%adenoma%'
+	OR ABDOMINAL LIKE '%adenoma%'
 	OR KIDNEY LIKE '%angiomyolipoma%'
 	OR KIDNEY LIKE '%representing a splenule%'
 	) THEN 'BENIGN'
 	WHEN (
-	(REPLACE(ADRENAL, ' ', '') LIKE '%[1-3].[0-9]CM%'
-	OR REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z][1-3]CM%'
+	(REPLACE(ADRENAL, ' ', '') LIKE '%[1-3].[0-9]CM%' -- (ex. 1.5CM)
+	OR REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z][1-3]CM%' 
 	OR REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z][. :][1-3]CM%'
-	OR REPLACE(ADRENAL, ' ', '') LIKE '%[1-9][0-9]MM%')
+	OR REPLACE(ADRENAL, ' ', '') LIKE '%[1-9][0-9]MM%') -- (10 MM == 1cm)
 	) THEN 'MID'
 	WHEN (
 	REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z . : ( -][1-9]MM%'
 	OR REPLACE(ADRENAL, ' ', '') LIKE '%0.[1-9]CM%'
 	OR REPLACE(ADRENAL, ' ', '') LIKE '%1CM%'
+	OR REPLACE(ADRENAL, ' ', '') LIKE '%SUBCENTIMETER%'
 	) THEN 'SMALL'
 	WHEN (ABDOMINAL like '%too small to characterize%' -- NOTE: WHEN A VALUE IS PASSED THROUGH THIS CASE IT IS MARKED WITH THE FIRST CONDITION THAT IS TRUE, THAT MEANS TO BE MARKED EXCLUDE THE REST OF THE STATEMENTS ARE FALSE
 	OR ABDOMINAL like '%too small to reliably characterize%'
-	OR ABDOMINAL LIKE '%SUBCENTIMETER%'
 	OR ABDOMINAL LIKE '%Accuracy may be limited in such a small lesion%'
 	OR ((ADRENAL LIKE '%UNREMARKABLE%' OR ADRENAL LIKE '%No suspicious mass%') 
 			AND (KIDNEY LIKE '%No suspicious renal mass%'
@@ -113,7 +121,7 @@ AND (ABDOMINAL NOT like '%complex appearing%'
 	AND ABDOMINAL NOT like '%Bosniak [3-4]%'
 	AND REPLACE(ABDOMINAL, ' ', '') NOT LIKE '%[A-Z][4-9]CM%'
 	AND REPLACE(ABDOMINAL, ' ', '') NOT LIKE '%[1-9][0-9]CM%'
-	AND REPLACE(ABDOMINAL, ' ', '') NOT LIKE '%[4-9].[0-9]CM%'
+	AND REPLACE(ABDOMINAL, ' ', '') NOT LIKE '%[4-9].[0-9]CM%' -- Exclude if the lesions are complex (possibly tumorous) or if they're >= 4 cm
 )
 
 SELECT DISTINCT 
@@ -155,7 +163,7 @@ INTO MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_2024_FINAL
 FROM MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE
 INNER JOIN (
 SELECT  DISTINCT ReportID,
--- Does the report have at least one of the phrases in it. if so, pass_measure will return the first phrase found
+-- Does the report have at least one of the phrases in it. if so, performance_met will return the first phrase found
 (SELECT TOP 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES
 	WHERE CRITERIA = 'PE' AND MEASURE = '405'
 	and REPORTCONTENT LIKE CONCAT('%',REPORT_PHRASES.PHRASE,'%')
@@ -177,11 +185,18 @@ inner join Caboodle.dbo.CoverageDim on EncounterFact.PrimaryCoverageKey = Covera
 inner join Caboodle.dbo.DepartmentDim on ImagingFact.PerformingDepartmentKey = DepartmentDim.DepartmentKey
 left outer join MIPS.DBO.HHC_CPT_PIVOT ON MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE.MCODE = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
 						 AND MIPS.DBO.HHC_CPT_PIVOT.CPT in (
-'71250','71260','71270','71271','71275','71555','72131','72191','72192','72193','72194','72195','72196','72197','72198','74150','74160','74170','74176','74177','74178','74181','74182','74183'
-)
+							'71250','71260','71270','71271','71275','71555','72131','72191','72192','72193','72194','72195'
+							,'72196','72197','72198','74150','74160','74170','74176','74177','74178','74181','74182','74183'
+							)
 where CATEGORY NOT LIKE 'EXCLUDE' 
 AND CATEGORY NOT LIKE 'OTHER'
 ;
+
+/*
+This measure tracking has a number of flaws. 
+1. If there is a benign cyst (mentioned first), and then a different large tumor mentioned afterwards, this will be marked as noncompliance 	
+2. Doctors are using conflicting language (ex. the cyst is likely benign but cannot determine...) This is generally hard to decipher through this query
+*/
 
 -- Mark exmas that should actually be compliant based on addendums
 UPDATE MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_2024_FINAL
@@ -207,7 +222,7 @@ AND ((EXAM_UNIQUE_ID IN
 				)
 			)
 		)
-	OR EXAM_UNIQUE_ID IN ('AR2024042501779')
+	OR EXAM_UNIQUE_ID IN ('AR2024042501779') -- this is not ideal. Issue explained in comment above update statement 
 	)
 ;
 
