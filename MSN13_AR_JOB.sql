@@ -74,7 +74,9 @@ CONVERT(VARCHAR(10), APPOINTMENTDATE, 101) as EXAM_DATE_TIME
 , MSN_13_2024.APPOINTMENTREASON
 , MIPS.DBO.HHC_CPT_PIVOT.CPT AS CPT_CODE
 , 'EE013' as DENOMINATOR_DIAGNOSIS_CODE
-, CASE WHEN ((concat(report.contenttext, addend.ContentText) LIKE '%Calcium Score%' or concat(report.contenttext, addend.ContentText) like '%CACS%') -- This is redundent because MSN_13_2024 filters for reports with these 2 phrases
+, CASE WHEN ((concat(report.contenttext, addend.ContentText) LIKE '%Calcium Score%' 
+				or concat(report.contenttext, addend.ContentText) like '%CACS%'
+				or concat(report.contenttext, addend.ContentText) like '%Total:%') -- This is redundent because MSN_13_2024 filters for reports with these 2 phrases
 		and (concat(report.contenttext, addend.ContentText) like '%Left Main%' or concat(report.contenttext, addend.ContentText) like '%LM:%') 
 		and concat(report.contenttext, addend.ContentText) like '%LAD:%' and concat(report.contenttext, addend.ContentText) like '%LCx:%' 
 		and concat(report.contenttext, addend.ContentText) like '%RCA:%' and concat(report.contenttext, addend.ContentText) like '%PDA:%') 

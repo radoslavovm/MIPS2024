@@ -1,7 +1,7 @@
-
 DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE;
 DROP TABLE IF EXISTS MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_2024_FINAL;
 
+-- PERFORMANCE NOTE: THIS CTE QUERY TAKES 20 SECONDS, WITH 3,742 RECORDS RETURNED 6/3/2024
 WITH PT1_405_CTE (REPORTID
 , MEASURE_NUMBER
 , PATIENT_NAME
@@ -45,14 +45,15 @@ WHERE NOT EXISTS (select top 1 PHRASE FROM ARC_DW.DBO.REPORT_PHRASES -- more inf
 INNER JOIN COMM4_HHC.DBO.[Order] ON R.ReportID = [Order].ReportID 
 INNER JOIN COMM4_HHC.DBO.Visit ON [Order].VisitID = Visit.VisitID 
 INNER JOIN COMM4_HHC.DBO.Patient ON Visit.PatientID = Patient.PatientID 
-left outer JOIN COMM4_HHC.DBO.PersonalInfo PatientDemo on Patient.PersonalInfoID = PatientDemo.PersonalInfoID 
-left outer join COMM4_HHC.DBO.Account ON R.DictatorAcctID = Account.AccountID 
-left outer JOIN COMM4_HHC.DBO.PersonalInfo pb on Account.PersonalInfoID = pb.PersonalInfoID 
-left outer JOIN COMM4_HHC.DBO.Account b on R.SignerAcctID = b.AccountID 
-left outer JOIN COMM4_HHC.DBO.PersonalInfo ON b.PersonalInfoID = PersonalInfo.PersonalInfoID 
+LEFT OUTER JOIN COMM4_HHC.DBO.PersonalInfo PatientDemo on Patient.PersonalInfoID = PatientDemo.PersonalInfoID 
+LEFT OUTER JOIN COMM4_HHC.DBO.Account ON R.DictatorAcctID = Account.AccountID 
+LEFT OUTER JOIN COMM4_HHC.DBO.PersonalInfo pb on Account.PersonalInfoID = pb.PersonalInfoID 
+LEFT OUTER JOIN COMM4_HHC.DBO.Account b on R.SignerAcctID = b.AccountID 
+LEFT OUTER JOIN COMM4_HHC.DBO.PersonalInfo ON b.PersonalInfoID = PersonalInfo.PersonalInfoID 
 INNER JOIN MIPS.DBO.HHC_CPT_PIVOT ON [ORDER].ProcedureCodeList = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
 										AND MIPS.DBO.HHC_CPT_PIVOT.CPT IN ('71250','71260','71270','71271','71275','71555','72131','72191','72192','72193','72194','72195','72196','72197','72198','74150','74160','74170','74176','74177','74178','74181','74182','74183')
 WHERE [ORDER].SITEID IN (8)  -- Advanced Radiology site
+AND LEFT([ORDER].PROCEDUREDESCLIST, 2) = 'MR'
 AND [ORDER].LastModifiedDate >= '01/01/2024'
 AND (ContentText LIKE '%RENAL%' 
 	OR ContentText LIKE '%KIDNEY%') 
@@ -63,40 +64,24 @@ AND CONVERT(int,ROUND(DATEDIFF(hour,PATIENT.dob,CONVERT(VARCHAR(10), CONVERT(VAR
 The goal of this table is to categorize the reports to cover the many conditions of this measure.
 The categories are : 
 	Benign: Checking for Kidney to be marked as benign. (requires no-followup recommendation)
-	Mid: Adrenal lesions that are > 1cm and < 4cm large. (if report is marked with this, the lesion needs to be marked as benign to require no-followup recommendation)
-	Small: Adrenal is 1 cm or smaller (this requires no-followup recommendation)
-	Exclude: If no lesions are found, in Adrenal AND Kidney, or accuracy of image is limited, then the report is excluded from the denominator of measure 
+	Mid: Adrenal lesions that are > 1cm and < 4cm large and characterized as benign 
+	SUBCENTIMETER: Adrenal is 1 cm or smaller (this requires no-followup recommendation)
+	Exclude: If no lesions are found, in Adrenal AND Kidney, or accuracy of image is limited, or cannot be determined as bengin, then the report is excluded from the denominator of measure 
 	Other: this category is here simply to be able to monitor if this query is not handling any reports. Its for quality checking this query logic. 
 */
-SELECT F.* -- All of the fields in the CTE portion of the query 
-, CASE 
-	WHEN (
+-- COVER KIDNEY 
+SELECT PT1_405_CTE.* -- All of the fields in the CTE portion of the query 
+, 'KIDNEY' AS SEC
+, CASE WHEN (
 	KIDNEY like '%Bosniak%'
 	OR KIDNEY like '%simple appear%'
 	OR KIDNEY like '%BENIGN SIMPLE CYST%'
 	OR KIDNEY like '%BENIGN CYST%'
 	OR KIDNEY like '%SIMPLE CYST%'
-	OR ABDOMINAL LIKE '%adenoma%'
 	OR KIDNEY LIKE '%angiomyolipoma%'
 	OR KIDNEY LIKE '%representing a splenule%'
-	) THEN 'BENIGN'
-	WHEN (
-	(REPLACE(ADRENAL, ' ', '') LIKE '%[1-3].[0-9]CM%' -- (ex. 1.5CM)
-	OR REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z][1-3]CM%' 
-	OR REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z][. :][1-3]CM%'
-	OR REPLACE(ADRENAL, ' ', '') LIKE '%[1-9][0-9]MM%') -- (10 MM == 1cm)
-	) THEN 'MID'
-	WHEN (
-	REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z . : ( -][1-9]MM%'
-	OR REPLACE(ADRENAL, ' ', '') LIKE '%0.[1-9]CM%'
-	OR REPLACE(ADRENAL, ' ', '') LIKE '%1CM%'
-	OR REPLACE(ADRENAL, ' ', '') LIKE '%SUBCENTIMETER%'
-	) THEN 'SMALL'
-	WHEN (ABDOMINAL like '%too small to characterize%' -- NOTE: WHEN A VALUE IS PASSED THROUGH THIS CASE IT IS MARKED WITH THE FIRST CONDITION THAT IS TRUE, THAT MEANS TO BE MARKED EXCLUDE THE REST OF THE STATEMENTS ARE FALSE
-	OR ABDOMINAL like '%too small to reliably characterize%'
-	OR ABDOMINAL LIKE '%Accuracy may be limited in such a small lesion%'
-	OR ((ADRENAL LIKE '%UNREMARKABLE%' OR ADRENAL LIKE '%No suspicious mass%') 
-			AND (KIDNEY LIKE '%No suspicious renal mass%'
+	) THEN 'BENIGN' -- NOTE: WHEN A VALUE IS PASSED THROUGH THIS CASE IT IS MARKED WITH THE FIRST CONDITION THAT IS TRUE, THAT MEANS TO BE MARKED EXCLUDE THE REST OF THE STATEMENTS ARE FALSE
+	WHEN (KIDNEY LIKE '%No suspicious renal mass%'
 			OR KIDNEY LIKE '%No suspicious SOLID mass%'
 			OR KIDNEY LIKE '%No SOLID RENAL mass%'
 			OR KIDNEY LIKE '%No suspicious mass%'
@@ -105,24 +90,60 @@ SELECT F.* -- All of the fields in the CTE portion of the query
 			OR KIDNEY LIKE '%UNREMARKABLE%'
 			OR KIDNEY LIKE '%Accuracy may be limited in such a small lesion%'
 			OR KIDNEY LIKE '%incompletely characterized without IV contrast%'
-			OR KIDNEY LIKE '%difficult to characterize%'))
-	) THEN 'EXCLUDE'
+			OR KIDNEY LIKE '%difficult to characterize%'
+	) THEN 'EXCLUDE' -- NOTE: WHEN A VALUE IS PASSED THROUGH THIS CASE IT IS MARKED WITH THE FIRST CONDITION THAT IS TRUE, THAT MEANS TO BE MARKED EXCLUDE THE REST OF THE STATEMENTS ARE FALSE
 	ELSE 'OTHER' END AS CATEGORY
 INTO MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE
-FROM PT1_405_CTE AS F
-INNER JOIN comm4_hhc.dbo.[order] on F.reportid = [order].reportid
-INNER JOIN comm4_hhc.dbo.visit on [order].visitid = visit.visitid
-INNER JOIN comm4_hhc.dbo.patient on patient.patientid = visit.patientid
+FROM PT1_405_CTE
+WHERE KIDNEY NOT LIKE '%Unremarkable%' 
 
-WHERE F.MODALITY = 'MR'
-AND (ABDOMINAL NOT like '%complex appearing%'
-	AND ABDOMINAL NOT like '%complex CYST%'
-	AND ABDOMINAL NOT like '%Bosniak[3-4]%'
-	AND ABDOMINAL NOT like '%Bosniak [3-4]%'
-	AND REPLACE(ABDOMINAL, ' ', '') NOT LIKE '%[A-Z][4-9]CM%'
-	AND REPLACE(ABDOMINAL, ' ', '') NOT LIKE '%[1-9][0-9]CM%'
-	AND REPLACE(ABDOMINAL, ' ', '') NOT LIKE '%[4-9].[0-9]CM%' -- Exclude if the lesions are complex (possibly tumorous) or if they're >= 4 cm
-)
+UNION ALL
+
+-- COVER ADRENAL 
+/*
+Questions: 
+	- If adrenal nodule is characterized as benign but size is not specified should it be included? 
+	if so: WHEN (
+			((REPLACE(ADRENAL, ' ', '') LIKE '%[1-3].[0-9]CM%' -- (ex. 1.5CM)
+			OR REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z][1-3]CM%' 
+			OR REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z][. :][1-3]CM%'
+			OR REPLACE(ADRENAL, ' ', '') LIKE '%[1-9][0-9]MM%') -- (10 MM == 1cm)
+			AND 
+			(ADRENAL LIKE '%adenoma%') 
+				)
+			OR
+			((ADRENAL LIKE '%adenoma%') 
+			OR (ADRENAL LIKE '%simple appear%') 
+				)
+			) THEN 'SIMPLE'
+*/
+SELECT PT1_405_CTE.*
+, 'ADRENAL' AS SEC
+, CASE WHEN (
+	REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z . : ( -][1-9]MM%'
+	OR REPLACE(ADRENAL, ' ', '') LIKE '%0.[1-9]CM%'
+	OR REPLACE(ADRENAL, ' ', '') LIKE '% 1CM%'
+	OR REPLACE(ADRENAL, ' ', '') LIKE '%SUBCENTIMETER%'
+	) THEN 'SUBCENTIMETER'
+	WHEN (
+	(REPLACE(ADRENAL, ' ', '') LIKE '%[1-3].[0-9]CM%' -- (ex. 1.5CM)
+	OR REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z][1-3]CM%' 
+	OR REPLACE(ADRENAL, ' ', '') LIKE '%[A-Z][. :][1-3]CM%'
+	OR REPLACE(ADRENAL, ' ', '') LIKE '%[1-9][0-9]MM%') -- (10 MM == 1cm)
+	AND 
+	(ADRENAL LIKE '%adenoma%') 
+	) THEN 'BENIGN' -- BETWEEN 1-4 CM AND PRESENTS AS BENIGN
+	WHEN (
+	ADRENAL LIKE '%Accuracy may be limited in such a small lesion%'
+	) THEN 'EXCLUDE' -- NOTE: WHEN A VALUE IS PASSED THROUGH THIS CASE IT IS MARKED WITH THE FIRST CONDITION THAT IS TRUE, THAT MEANS TO BE MARKED EXCLUDE THE REST OF THE STATEMENTS ARE FALSE
+	ELSE 'OTHER' END AS CATEGORY
+FROM PT1_405_CTE
+WHERE ADRENAL NOT LIKE '%Unremarkable%' 
+AND ADRENAL NOT LIKE '%No suspicious mass%'
+AND REPLACE(ADRENAL, ' ', '') NOT LIKE '%[A-Z][4-9]CM%'
+AND REPLACE(ADRENAL, ' ', '') NOT LIKE '%[1-9][0-9]CM%'
+AND REPLACE(ADRENAL, ' ', '') NOT LIKE '%[4-9].[0-9]CM%' -- Exclude if the lesions are complex (possibly tumorous) or if they're >= 4 cm
+;
 
 SELECT DISTINCT 
 CONVERT(VARCHAR(10), APPOINTMENTDATE, 101) as EXAM_DATE_TIME
@@ -150,8 +171,7 @@ CONVERT(VARCHAR(10), APPOINTMENTDATE, 101) as EXAM_DATE_TIME
 , CASE 
 	WHEN ( R.performance_met IS NOT NULL)
 		THEN 'G9548'  -- PERFORMANCE MET 
-	WHEN (R.measure_exception IS NOT NULL
-	OR CATEGORY = 'MID')
+	WHEN (R.measure_exception IS NOT NULL)
 		THEN 'G9549' -- EXCLUDE
 	ELSE 'G9550' END  AS NUMERATOR_RESPONSE_VALUE -- PNM
 , '' AS MEASURE_EXTENSION_NUM
@@ -175,20 +195,20 @@ SELECT  DISTINCT ReportID,
 FROM MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE
 ) AS R 
 ON R.ReportID = INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE.ReportID
-Inner join comm4_hhc.dbo.[order] on R.reportid = [order].reportid
-inner join comm4_hhc.dbo.visit on [order].visitid = visit.visitid
-inner join comm4_hhc.dbo.patient on patient.patientid = visit.patientid
-inner join Caboodle.dbo.ImagingFact on [order].fillerordernumber = ImagingFact.AccessionNumber
-inner join Caboodle.dbo.[providerdim] on ImagingFact.FinalizingProviderDurableKey = [providerdim].DurableKey and [providerdim].npi <> '*Unspecified' 
-inner join Caboodle.dbo.EncounterFact  on ImagingFact.PerformingEncounterKey = EncounterFact.EncounterKey
-inner join Caboodle.dbo.CoverageDim on EncounterFact.PrimaryCoverageKey = CoverageDim.CoverageKey
-inner join Caboodle.dbo.DepartmentDim on ImagingFact.PerformingDepartmentKey = DepartmentDim.DepartmentKey
-left outer join MIPS.DBO.HHC_CPT_PIVOT ON MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE.MCODE = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
+INNER JOIN comm4_hhc.dbo.[order] on R.reportid = [order].reportid
+INNER JOIN comm4_hhc.dbo.visit on [order].visitid = visit.visitid
+INNER JOIN comm4_hhc.dbo.patient on patient.patientid = visit.patientid
+INNER JOIN Caboodle.dbo.ImagingFact on [order].fillerordernumber = ImagingFact.AccessionNumber
+INNER JOIN Caboodle.dbo.[providerdim] on ImagingFact.FinalizingProviderDurableKey = [providerdim].DurableKey and [providerdim].npi <> '*Unspecified' 
+INNER JOIN Caboodle.dbo.EncounterFact  on ImagingFact.PerformingEncounterKey = EncounterFact.EncounterKey
+INNER JOIN Caboodle.dbo.CoverageDim on EncounterFact.PrimaryCoverageKey = CoverageDim.CoverageKey
+INNER JOIN Caboodle.dbo.DepartmentDim on ImagingFact.PerformingDepartmentKey = DepartmentDim.DepartmentKey
+LEFT OUTER JOIN MIPS.DBO.HHC_CPT_PIVOT ON MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_CATEGORIZE.MCODE = MIPS.DBO.HHC_CPT_PIVOT.[MPI: ID]
 						 AND MIPS.DBO.HHC_CPT_PIVOT.CPT in (
 							'71250','71260','71270','71271','71275','71555','72131','72191','72192','72193','72194','72195'
 							,'72196','72197','72198','74150','74160','74170','74176','74177','74178','74181','74182','74183'
 							)
-where CATEGORY NOT LIKE 'EXCLUDE' 
+WHERE CATEGORY NOT LIKE 'EXCLUDE' 
 AND CATEGORY NOT LIKE 'OTHER'
 ;
 
@@ -226,7 +246,8 @@ AND ((EXAM_UNIQUE_ID IN
 	)
 ;
 
--- Mark exmas that should actually be excluded 
+-- This query is for reports that have unique language, and need to be marked as compliant.
+-- It is good not to overuse this, if there is a pattern within these reports, change the initial query instead...
 UPDATE MIPS.DBO.INCIDENTAL_ABDOMINAL_LESIONS_405_2024_FINAL
 SET NUMERATOR_RESPONSE_VALUE = 'G95409'
 WHERE  NUMERATOR_RESPONSE_VALUE = 'G9550'
