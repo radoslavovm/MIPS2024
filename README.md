@@ -68,6 +68,32 @@ that one or more of the following dose reduction techniques were used <br>
 
   > [Documentation](https://qpp.cms.gov/docs/QPP_quality_measure_specifications/CQM-Measures/2020_Measure_436_MIPSCQM.pdf)
 
+### MSN13
+ Screening Coronary Calcium Scoring for Cardiovascular Risk Assessment Including Coronary Artery Calcification Regional Distribution Scoring
+
+Percentage of patients, regardless of age, undergoing Coronary Calcium 
+Scoring who have measurable coronary artery calcification (CAC) with total 
+CACS and regional distribution scoring documented in the Final report.
+
+Clinician reported total CACS as well as the 
+regional CACS for each of these regions: the Left Main, LAD, LCx, RCA, and 
+PDA
+
+  > [Documentation](https://www.acr.org/-/media/ACR/Files/Registries/QCDR/2022-QCDR-Simplified-Measure-Specifications.pdf)
+
+  ### MSN15
+ Use of Thyroid Imaging Reporting & Data System (TI-RADS) in Final Report to Stratify Thyroid Nodule Risk
+
+Percentage of patients, 19 years in age and older, undergoing ultrasound of 
+the neck with findings of thyroid nodule(s) whose reports include the TI-RADS assessment.
+
+For Compliance : Patients with thyroid nodules who are assigned a 
+TI-RADS Score and assessed and stratified with the recommendations per TI-RADS documented in the final report.
+
+
+  > [Documentation](https://www.acr.org/-/media/ACR/Files/Registries/QCDR/2022-QCDR-Simplified-Measure-Specifications.pdf)
+
+
 
 
 # TO DO 
